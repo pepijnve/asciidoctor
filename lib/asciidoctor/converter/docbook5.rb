@@ -245,6 +245,13 @@ module Asciidoctor
       end
     end
 
+    begin
+      require 'asciimath'
+      ASCIIMATH_LOADED = true
+    rescue
+      ASCIIMATH_LOADED = false
+    end
+
     def stem node
       if (idx = node.subs.index :specialcharacters)
         node.subs.delete :specialcharacters
@@ -254,9 +261,10 @@ module Asciidoctor
       if node.style == 'latexmath'
         equation_data = %(<alt><![CDATA[#{equation}]]></alt>
 <mediaobject><textobject><phrase></phrase></textobject></mediaobject>)
-      # asciimath
+      elsif node.style == 'asciimath' && ASCIIMATH_LOADED
+        equation_data = Asciimath.parse(equation).to_mathml('mml:', 'xmlns:mml' => 'http://www.w3.org/1998/Math/MathML')
       else
-        # DocBook backends can't handle AsciiMath, so output raw expression in text object
+        # Unsupported math style, so output raw expression in text object
         equation_data = %(<mediaobject><textobject><phrase><![CDATA[#{equation}]]></phrase></textobject></mediaobject>)
       end
       if node.title?
