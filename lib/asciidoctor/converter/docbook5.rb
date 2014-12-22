@@ -248,7 +248,7 @@ module Asciidoctor
     begin
       require 'asciimath'
       ASCIIMATH_LOADED = true
-    rescue
+    rescue LoadError
       ASCIIMATH_LOADED = false
     end
 
