@@ -262,7 +262,7 @@ module Asciidoctor
         equation_data = %(<alt><![CDATA[#{equation}]]></alt>
 <mediaobject><textobject><phrase></phrase></textobject></mediaobject>)
       elsif node.style == 'asciimath' && ASCIIMATH_LOADED
-        equation_data = Asciimath.parse(equation).to_mathml('mml:', 'xmlns:mml' => 'http://www.w3.org/1998/Math/MathML')
+        equation_data = AsciiMath.parse(equation).to_mathml('mml:', 'xmlns:mml' => 'http://www.w3.org/1998/Math/MathML')
       else
         # Unsupported math style, so output raw expression in text object
         equation_data = %(<mediaobject><textobject><phrase><![CDATA[#{equation}]]></phrase></textobject></mediaobject>)
