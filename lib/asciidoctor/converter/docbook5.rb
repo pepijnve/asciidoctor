@@ -248,7 +248,7 @@ module Asciidoctor
     end
 
     begin
-      require 'asciimath'
+      require 'asciimath' unless defined? ::AsciiMath
       ASCIIMATH_LOADED = true
     rescue LoadError
       ASCIIMATH_LOADED = false
