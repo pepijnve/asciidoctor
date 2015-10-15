@@ -864,9 +864,9 @@ end
 
       expected = <<-EOS
  def names
- 
+
    @names.split ' '
- 
+
  end
       EOS
 
@@ -893,10 +893,39 @@ end
 
       expected = <<-EOS
  def names
- 
+
    @names.split ' '
- 
+
  end
+      EOS
+
+      output = render_embedded_string input
+      assert_css 'pre', output, 1
+      assert_css '.listingblock pre', output, 1
+      result = xmlnodes_at_xpath('//pre', output, 1).text
+      assert_equal expected.chomp, result
+    end
+
+    test 'should expand tabs if tabsize attribute is positive' do
+      input = <<-EOS
+:tabsize: 4
+
+[indent=0]
+----
+	def names
+
+		@names.split ' '
+
+	end
+----
+      EOS
+
+      expected = <<-EOS
+def names
+
+    @names.split ' '
+
+end
       EOS
 
       output = render_embedded_string input
@@ -1870,7 +1899,7 @@ video::67480300[vimeo, 400, 300, start=60, options=autoplay]
       output = render_embedded_string input
       assert_css 'video', output, 0
       assert_css 'iframe', output, 1
-      assert_css 'iframe[src="//player.vimeo.com/video/67480300#at=60?autoplay=1"]', output, 1
+      assert_css 'iframe[src="https://player.vimeo.com/video/67480300#at=60?autoplay=1"]', output, 1
       assert_css 'iframe[width="400"]', output, 1
       assert_css 'iframe[height="300"]', output, 1
     end
@@ -1882,7 +1911,7 @@ video::U8GBXvdmHT4/PLg7s6cbtAD15Das5LK9mXt_g59DLWxKUe[youtube, 640, 360, start=6
       output = render_embedded_string input
       assert_css 'video', output, 0
       assert_css 'iframe', output, 1
-      assert_css 'iframe[src="//www.youtube.com/embed/U8GBXvdmHT4?rel=0&start=60&autoplay=1&list=PLg7s6cbtAD15Das5LK9mXt_g59DLWxKUe&modestbranding=1&theme=light"]', output, 1
+      assert_css 'iframe[src="https://www.youtube.com/embed/U8GBXvdmHT4?rel=0&start=60&autoplay=1&list=PLg7s6cbtAD15Das5LK9mXt_g59DLWxKUe&modestbranding=1&theme=light"]', output, 1
       assert_css 'iframe[width="640"]', output, 1
       assert_css 'iframe[height="360"]', output, 1
     end
@@ -1894,7 +1923,7 @@ video::SCZF6I-Rc4I,AsKGOeonbIs,HwrPhOp6-aM[youtube, 640, 360, start=60, options=
       output = render_embedded_string input
       assert_css 'video', output, 0
       assert_css 'iframe', output, 1
-      assert_css 'iframe[src="//www.youtube.com/embed/SCZF6I-Rc4I?rel=0&start=60&autoplay=1&playlist=AsKGOeonbIs,HwrPhOp6-aM"]', output, 1
+      assert_css 'iframe[src="https://www.youtube.com/embed/SCZF6I-Rc4I?rel=0&start=60&autoplay=1&playlist=AsKGOeonbIs,HwrPhOp6-aM"]', output, 1
       assert_css 'iframe[width="640"]', output, 1
       assert_css 'iframe[height="360"]', output, 1
     end
@@ -2026,7 +2055,7 @@ You can use icons for admonitions by setting the 'icons' attribute.
       EOS
 
       output = render_string input, :safe => Asciidoctor::SafeMode::SERVER
-      assert_css 'html > head > link[rel="stylesheet"][href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css"]', output, 1
+      assert_css 'html > head > link[rel="stylesheet"][href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.4.0/css/font-awesome.min.css"]', output, 1
       assert_xpath '//*[@class="admonitionblock tip"]//*[@class="icon"]/i[@class="fa icon-tip"]', output, 1
     end
 
@@ -2043,8 +2072,8 @@ puts "AsciiDoc, FTW!"
       EOS
 
       output = render_string input, :safe => Asciidoctor::SafeMode::SAFE
-      assert_css 'html > head > link[rel="stylesheet"][href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css"]', output, 1
-      assert_css 'html > head > script[src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/highlight.min.js"]', output, 1
+      assert_css 'html > head > link[rel="stylesheet"][href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.4.0/css/font-awesome.min.css"]', output, 1
+      assert_css 'html > body > script[src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.6/highlight.min.js"]', output, 1
     end
 
     test 'should use no uri scheme for assets when asset-uri-scheme is blank' do
@@ -2060,8 +2089,8 @@ puts "AsciiDoc, FTW!"
       EOS
 
       output = render_string input, :safe => Asciidoctor::SafeMode::SAFE
-      assert_css 'html > head > link[rel="stylesheet"][href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css"]', output, 1
-      assert_css 'html > head > script[src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/highlight.min.js"]', output, 1
+      assert_css 'html > head > link[rel="stylesheet"][href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.4.0/css/font-awesome.min.css"]', output, 1
+      assert_css 'html > body > script[src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.6/highlight.min.js"]', output, 1
     end
   end
 

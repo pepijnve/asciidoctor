@@ -152,7 +152,7 @@ Matching templates found in subsequent directories override ones previously disc
 
 == BUGS
 
-See the *Asciidoctor* issue tracker: <**https://github.com/asciidoctor/asciidoctor/issues?q=is%3Aopen**>
+Refer to the *Asciidoctor* issue tracker at https://github.com/asciidoctor/asciidoctor/issues?q=is%3Aopen.
 
 == AUTHORS
 
@@ -162,17 +162,17 @@ See the *Asciidoctor* issue tracker: <**https://github.com/asciidoctor/asciidoct
 
 == RESOURCES
 
-Git source repository on GitHub: <**https://github.com/asciidoctor/asciidoctor**>
+*Git source repository on GitHub:* https://github.com/asciidoctor/asciidoctor
 
-Project web site: <**http://asciidoctor.org**>
+*Project web site:* http://asciidoctor.org
 
-GitHub organization: <**https://github.com/asciidoctor**>
+*GitHub organization:* https://github.com/asciidoctor
 
-Discussion list / forum: <**http://discuss.asciidoctor.org**>
+*Discussion list / forum:* http://discuss.asciidoctor.org
 
 == COPYING
 
-Copyright \(C) 2012-2014 Dan Allen, Ryan Waldron and the Asciidoctor Project.
+Copyright \(C) 2012-2015 Dan Allen, Ryan Waldron and the Asciidoctor Project.
 Free use of this software is granted under the terms of the MIT License.
 
 // vim: tw=80

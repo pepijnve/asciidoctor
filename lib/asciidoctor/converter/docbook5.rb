@@ -188,6 +188,8 @@ module Asciidoctor
     def image node
       width_attribute = (node.attr? 'width') ? %( contentwidth="#{node.attr 'width'}") : nil
       depth_attribute = (node.attr? 'height') ? %( contentdepth="#{node.attr 'height'}") : nil
+      # FIXME if scaledwidth is set, we should remove width & depth
+      # See http://www.docbook.org/tdg/en/html/imagedata.html#d0e92271 for details
       swidth_attribute = (node.attr? 'scaledwidth') ? %( width="#{node.attr 'scaledwidth'}" scalefit="1") : nil
       scale_attribute = (node.attr? 'scale') ? %( scale="#{node.attr 'scale'}") : nil
       align_attribute = (node.attr? 'align') ? %( align="#{node.attr 'align'}") : nil
@@ -382,6 +384,11 @@ module Asciidoctor
       result = []
       pgwide_attribute = (node.option? 'pgwide') ? ' pgwide="1"' : nil
       result << %(<#{tag_name = node.title? ? 'table' : 'informaltable'}#{common_attributes node.id, node.role, node.reftext}#{pgwide_attribute} frame="#{node.attr 'frame', 'all'}" rowsep="#{['none', 'cols'].include?(node.attr 'grid') ? 0 : 1}" colsep="#{['none', 'rows'].include?(node.attr 'grid') ? 0 : 1}">)
+      if (node.option? 'unbreakable')
+        result << '<?dbfo keep-together="always"?>'
+      elsif (node.option? 'breakable')
+        result << '<?dbfo keep-together="auto"?>'
+      end
       result << %(<title>#{node.title}</title>) if tag_name == 'table'
       if (width = (node.attr? 'width') ? (node.attr 'width') : nil)
         TABLE_PI_NAMES.each do |pi_name|
@@ -496,16 +503,18 @@ module Asciidoctor
       when :ref
         %(<anchor#{common_attributes node.target, nil, node.text}/>)
       when :xref
-        if node.attr? 'path', nil
-          linkend = (node.attr 'fragment') || node.target
-          (text = node.text) ? %(<link linkend="#{linkend}">#{text}</link>) : %(<xref linkend="#{linkend}"/>)
+        if (path = node.attributes['path'])
+          # QUESTION should we use refid as fallback text instead? (like the html5 backend?)
+          %(<link xlink:href="#{node.target}">#{node.text || path}</link>)
         else
-          %(<link xlink:href="#{target}">#{node.text || (node.attr 'path')}</link>)
+          linkend = node.attributes['fragment'] || node.target
+          (text = node.text) ? %(<link linkend="#{linkend}">#{text}</link>) : %(<xref linkend="#{linkend}"/>)
         end
       when :link
         %(<link xlink:href="#{node.target}">#{node.text}</link>)
       when :bibref
-        %(<anchor#{common_attributes node.target, nil, "[#{node.target}]"}/>[#{node.target}])
+        target = node.target
+        %(<anchor#{common_attributes target, nil, "[#{target}]"}/>[#{target}])
       else
         warn %(asciidoctor: WARNING: unknown anchor type: #{node.type.inspect})
       end
@@ -569,8 +578,7 @@ module Asciidoctor
       if (keys = node.attr 'keys').size == 1
         %(<keycap>#{keys[0]}</keycap>)
       else
-        key_combo = keys.map {|key| %(<keycap>#{key}</keycap>) }.join
-        %(<keycombo>#{key_combo}</keycombo>)
+        %(<keycombo>#{keys.map {|key| "<keycap>#{key}</keycap>" }.join}</keycombo>)
       end
     end
 

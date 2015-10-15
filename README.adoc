@@ -7,6 +7,7 @@ ifdef::env-github[:idprefix: user-content-]
 :idseparator: -
 :source-language: ruby
 :language: {source-language}
+ifdef::env-github[:badges:]
 // URIs:
 :uri-org: https://github.com/asciidoctor
 :uri-repo: {uri-org}/asciidoctor
@@ -70,14 +71,14 @@ We use http://opalrb.org[Opal] to transcompile the Ruby source to JavaScript to 
 Asciidoctor.js is used to power the AsciiDoc preview extensions for Chrome, Atom, Brackets and other web-based tooling.
 ****
 
-ifdef::env-github[]
+ifdef::badges[]
 .*Project health*
 image:https://img.shields.io/travis/asciidoctor/asciidoctor/master.svg[Build Status (Travis CI), link=https://travis-ci.org/asciidoctor/asciidoctor] 
-image:https://ci.appveyor.com/api/projects/status/ifplu67oxvgn6ceq/branch/master?svg=true[Build Status (AppVeyor), link=https://ci.appveyor.com/project/asciidoctor/asciidoctor] 
+image:https://ci.appveyor.com/api/projects/status/ifplu67oxvgn6ceq/branch/master?svg=true&amp;passingText=green%20bar&amp;failingText=%23fail&amp;pendingText=building%2E%2E%2E[Build Status (AppVeyor), link=https://ci.appveyor.com/project/asciidoctor/asciidoctor] 
 //image:https://img.shields.io/coveralls/asciidoctor/asciidoctor/master.svg[Coverage Status, link=https://coveralls.io/r/asciidoctor/asciidoctor]
 image:https://codeclimate.com/github/asciidoctor/asciidoctor/badges/gpa.svg[Code Climate, link="https://codeclimate.com/github/asciidoctor/asciidoctor"]
 image:https://inch-ci.org/github/asciidoctor/asciidoctor.svg?branch=master[Inline docs, link="https://inch-ci.org/github/asciidoctor/asciidoctor"]
-endif::env-github[]
+endif::[]
 
 == The Big Picture
 
@@ -94,7 +95,7 @@ You have the option of writing your own converter or providing {uri-tilt}[Tilt]-
 NOTE: Asciidoctor is a drop-in replacement for the original AsciiDoc Python processor (`asciidoc.py`).
 The Asciidoctor test suite has {uri-tests}[> 1,500 tests] to ensure compatibility with the AsciiDoc syntax.
 
-In addition to the standard AsciiDoc syntax, Asciidoctor recognizes additional markup and formatting options, such as font-based icons (e.g., [x-]`icon:fire[]`) and UI elements (e.g., [x-]`button:[Save]`).
+In addition to the standard AsciiDoc syntax, Asciidoctor recognizes additional markup and formatting options, such as font-based icons (e.g., `+icon:fire[]+`) and UI elements (e.g., `+button:[Save]+`).
 Asciidoctor also offers a modern, responsive theme based on {uri-foundation}[Foundation] to style the HTML5 output.
 
 == Requirements
@@ -150,7 +151,7 @@ If that's the case, use the following gem command to remove the old versions:
 source 'https://rubygems.org'
 gem 'asciidoctor'
 # or specify the version explicitly
-# gem 'asciidoctor', '1.5.0'
+# gem 'asciidoctor', '1.5.2'
 ----
 
 . Save the Gemfile
@@ -203,8 +204,8 @@ You should see information about the Asciidoctor version and your Ruby environme
 
 [.output]
 ....
-Asciidoctor 1.5.0 [http://asciidoctor.org]
-Runtime Environment (ruby 2.1.2p95 (2014-05-08 revision 45877) [x86_64-linux])
+Asciidoctor 1.5.2 [http://asciidoctor.org]
+Runtime Environment (ruby 2.2.0p0 (2014-12-25 revision 49005) [x86_64-linux]) (lc:UTF-8 fs:UTF-8 in:- ex:UTF-8)
 ....
 
 Asciidoctor also provides an API.
@@ -313,6 +314,7 @@ We encourage you to ask questions and discuss any aspects of the project on the 
 
 Mailing list:: {uri-discuss}
 Twitter (Chat):: #asciidoctor hashtag
+Gitter (Chat):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
 IRC (Chat):: {uri-irc}[#asciidoctor] on FreeNode IRC
 
 ifdef::env-github[]
@@ -329,14 +331,14 @@ Asciidoctor organization on GitHub:: {uri-org}
 
 == Copyright and Licensing
 
-Copyright (C) 2012-2014 Dan Allen, Ryan Waldron and the Asciidoctor Project.
+Copyright (C) 2012-2015 Dan Allen, Ryan Waldron and the Asciidoctor Project.
 Free use of this software is granted under the terms of the MIT License.
 
 See the {uri-license}[LICENSE] file for details.
 
 == Authors
 
-*Asciidoctor* is lead by https://github.com/mojavelinux[Dan Allen] and https://github.com/graphitefriction[Sarah White] and has received contributions from {uri-contributors}[many other individuals] in Asciidoctor's awesome community.
+*Asciidoctor* is led by https://github.com/mojavelinux[Dan Allen] and https://github.com/graphitefriction[Sarah White] and has received contributions from {uri-contributors}[many other individuals] in Asciidoctor's awesome community.
 The project was initiated in 2012 by https://github.com/erebor[Ryan Waldron] and based on {uri-prototype}[a prototype] written by https://github.com/nickh[Nick Hengeveld].
 
 *AsciiDoc* was started by Stuart Rackham and has received contributions from many other individuals in the AsciiDoc community.
@@ -353,13 +355,13 @@ Enhancements::
 
 Improvements::
 
-  * recognize `--` as valid line comment for callout numbers; make line comment configurable (#1068)
+  * recognize `+--+` as valid line comment for callout numbers; make line comment configurable (#1068)
   * upgrade highlight.js to version 8.4 (#1216)
   * upgrade Font Awesome to version 4.2.0 (@clojens) (#1201)
   * define JAVASCRIPT_PLATFORM constant to simplify conditional logic in the JavaScript environment (#897)
   * provide access to destination directory, outfile and outdir via Document object (#1203)
   * print encoding information in version report produced by `asciidoctor -v` (#1210)
-  * add intrinsic attribute named `cpp` with value `C++` (#1208)
+  * add intrinsic attribute named `cpp` with value `pass:[C++]` (#1208)
   * preserve URI targets passed to `stylesheet` and related attributes (#1192)
   * allow numeric characters in block attribute name (#1103)
   * support custom YouTube playlists (#1105)

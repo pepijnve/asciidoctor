@@ -38,20 +38,22 @@ class Document < AbstractBlock
   # Public Parsed and stores a partitioned title (i.e., title & subtitle).
   class Title
     attr_reader :main
+    alias :title :main
     attr_reader :subtitle
     attr_reader :combined
 
     def initialize val, opts = {}
-      # TODO separate sanitization by type (:cdata for HTML/XML, :plain for non-SGML, false for none)
+      # TODO separate sanitization by type (:cdata for HTML/XML, :plain_text for non-SGML, false for none)
       if (@sanitized = opts[:sanitize]) && val.include?('<')
         val = val.gsub(XmlSanitizeRx, '').tr_s(' ', ' ').strip
       end
-      if (@combined = val).include? ': '
-        @main, _, @subtitle = val.rpartition ': '
-      else
+      if (sep = opts[:separator] || ':').empty? || !val.include?(sep = %(#{sep} ))
         @main = val
         @subtitle = nil
+      else
+        @main, _, @subtitle = val.rpartition sep
       end
+      @combined = val
     end
 
     def sanitized?
@@ -136,6 +138,9 @@ class Document < AbstractBlock
 
   # Public: Get the Hash of resolved options used to initialize this Document
   attr_reader :options
+
+  # Public: Get the outfilesuffix defined at the end of the header.
+  attr_reader :outfilesuffix
 
   # Public: Get a reference to the parent Document of this nested document.
   attr_reader :parent_document
@@ -246,7 +251,7 @@ class Document < AbstractBlock
     options.freeze
 
     attrs = @attributes
-    attrs['encoding'] = 'UTF-8'
+    #attrs['encoding'] = 'UTF-8'
     attrs['sectids'] = ''
     attrs['notitle'] = '' unless header_footer
     attrs['toc-placement'] = 'auto'
@@ -378,13 +383,16 @@ class Document < AbstractBlock
       # Eagerly parse (for now) since a subdocument is not a publicly accessible object
       Parser.parse @reader, self
 
-      # should we call rewind in some sort of post-parse function?
-      @callouts.rewind
+      # should we call some sort of post-parse function?
+      restore_attributes
       @parsed = true
     else
       # setup default backend and doctype
-      attrs['backend'] ||= DEFAULT_BACKEND
-      attrs['doctype'] ||= DEFAULT_DOCTYPE
+      if (attrs['backend'] ||= DEFAULT_BACKEND) == 'manpage'
+        attrs['doctype'] = attr_overrides['doctype'] = 'manpage'
+      else
+        attrs['doctype'] ||= DEFAULT_DOCTYPE
+      end
       update_backend_attributes attrs['backend'], true
 
       #attrs['indir'] = attrs['docdir']
@@ -460,8 +468,8 @@ class Document < AbstractBlock
       # Now parse the lines in the reader into blocks
       Parser.parse @reader, doc, :header_only => !!@options[:parse_header_only]
 
-      # should we call rewind in some sort of post-parse function?
-      @callouts.rewind
+      # should we call sort of post-parse function?
+      restore_attributes
 
       if exts && exts.treeprocessors?
         exts.treeprocessors.each do |ext|
@@ -529,13 +537,15 @@ class Document < AbstractBlock
     end
   end
 
-  def register(type, value)
+  def register(type, value, force = false)
     case type
     when :ids
-      if ::Array === value
-        @references[:ids][value[0]] = (value[1] || '[' + value[0] + ']')
+      id, reftext = [*value]
+      reftext ||= '[' + id + ']'
+      if force
+        @references[:ids][id] = reftext
       else
-        @references[:ids][value] = '[' + value + ']'
+        @references[:ids][id] ||= reftext
       end
     when :footnotes, :indexterms
       @references[type] << value
@@ -614,6 +624,8 @@ class Document < AbstractBlock
   # If the :partition attribute is specified, the value is parsed into an Document::Title object.
   # If the :sanitize attribute is specified, XML elements are removed from the value.
   #
+  # TODO separate sanitization by type (:cdata for HTML/XML, :plain_text for non-SGML, false for none)
+  #
   # Returns the resolved title as a [Title] if the :partition option is passed or a [String] if not
   # or nil if no value can be resolved.
   def doctitle opts = {}
@@ -627,8 +639,8 @@ class Document < AbstractBlock
       return
     end
     
-    if opts[:partition]
-      Title.new val, opts
+    if (separator = opts[:partition])
+      Title.new val, opts.merge({ :separator => (separator == true ? @attributes['title-separator'] : separator) })
     elsif opts[:sanitize] && val.include?('<')
       val.gsub(XmlSanitizeRx, '').tr_s(' ', ' ').strip
     else
@@ -763,7 +775,10 @@ class Document < AbstractBlock
       @compat_mode = false
     end
 
-    @original_attributes = attrs.dup
+    # NOTE pin the outfilesuffix after the header is parsed
+    @outfilesuffix = attrs['outfilesuffix']
+
+    @header_attributes = attrs.dup
 
     # unfreeze "flexible" attributes
     unless nested?
@@ -777,12 +792,13 @@ class Document < AbstractBlock
     end
   end
 
-  # Internal: Restore the attributes to the previously saved state
+  # Internal: Restore the attributes to the previously saved state (attributes in header)
   #--
   # QUESTION should we restore attributes after parse?
   def restore_attributes
+    @callouts.rewind
     # QUESTION shouldn't this be a dup in case we convert again?
-    @attributes = @original_attributes
+    @attributes = @header_attributes
   end
 
   # Internal: Delete any attributes stored for playback
@@ -986,6 +1002,7 @@ class Document < AbstractBlock
       converter_opts[:template_engine] = @options[:template_engine]
       converter_opts[:template_engine_options] = @options[:template_engine_options]
       converter_opts[:eruby] = @options[:eruby]
+      converter_opts[:safe] = @safe
     end
     if (converter = @options[:converter])
       converter_factory = Converter::Factory.new ::Hash[backend, converter]
@@ -1004,7 +1021,6 @@ class Document < AbstractBlock
   # using the appropriate built-in template.
   def convert opts = {}
     parse unless @parsed
-    restore_attributes
     unless @safe >= SafeMode::SERVER || opts.empty?
       # QUESTION should we store these on the Document object?
       @attributes.delete 'outfile' unless (@attributes['outfile'] = opts['outfile'])
@@ -1102,7 +1118,7 @@ class Document < AbstractBlock
       ''
     else
       qualifier = (location == :footer ? '-footer' : nil)
-      ext = @attributes['outfilesuffix'] unless ext
+      ext = @outfilesuffix unless ext
       docinfodir = @attributes['docinfodir']
 
       content = nil

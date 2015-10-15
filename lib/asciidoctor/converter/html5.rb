@@ -30,8 +30,9 @@ module Asciidoctor
       result = []
       slash = @void_element_slash
       br = %(<br#{slash}>)
-      asset_uri_scheme = (node.attr 'asset-uri-scheme', 'https')
-      asset_uri_scheme = %(#{asset_uri_scheme}:) unless asset_uri_scheme.empty?
+      unless (asset_uri_scheme = (node.attr 'asset-uri-scheme', 'https')).empty?
+        asset_uri_scheme = %(#{asset_uri_scheme}:)
+      end
       cdn_base = %(#{asset_uri_scheme}//cdnjs.cloudflare.com/ajax/libs)
       linkcss = node.safe >= SafeMode::SECURE || (node.attr? 'linkcss')
       result << '<!DOCTYPE html>'
@@ -52,7 +53,7 @@ module Asciidoctor
       result << %(<title>#{node.doctitle :sanitize => true, :use_fallback => true}</title>)
       if DEFAULT_STYLESHEET_KEYS.include?(node.attr 'stylesheet')
         if (webfonts = node.attr 'webfonts')
-          result << %(<link rel="stylesheet" href="#{asset_uri_scheme}//fonts.googleapis.com/css?family=#{webfonts.empty? ? 'Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400' : webfonts}"#{slash}>)
+          result << %(<link rel="stylesheet" href="#{asset_uri_scheme}//fonts.googleapis.com/css?family=#{webfonts.empty? ? 'Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700' : webfonts}"#{slash}>)
         end
         if linkcss
           result << %(<link rel="stylesheet" href="#{node.normalize_web_path DEFAULT_STYLESHEET_NAME, (node.attr 'stylesdir', ''), false}"#{slash}>)
@@ -71,14 +72,14 @@ module Asciidoctor
 
       if node.attr? 'icons', 'font'
         if node.attr? 'iconfont-remote'
-          result << %(<link rel="stylesheet" href="#{node.attr 'iconfont-cdn', %[#{cdn_base}/font-awesome/4.2.0/css/font-awesome.min.css]}"#{slash}>)
+          result << %(<link rel="stylesheet" href="#{node.attr 'iconfont-cdn', %[#{cdn_base}/font-awesome/4.4.0/css/font-awesome.min.css]}"#{slash}>)
         else
           iconfont_stylesheet = %(#{node.attr 'iconfont-name', 'font-awesome'}.css)
           result << %(<link rel="stylesheet" href="#{node.normalize_web_path iconfont_stylesheet, (node.attr 'stylesdir', ''), false}"#{slash}>)
         end
       end
 
-      case node.attr 'source-highlighter'
+      case (highlighter = node.attr 'source-highlighter')
       when 'coderay'
         if (node.attr 'coderay-css', 'class') == 'class'
           if linkcss
@@ -96,38 +97,6 @@ module Asciidoctor
             result << (@stylesheets.embed_pygments_stylesheet pygments_style)
           end
         end
-      when 'highlightjs', 'highlight.js'
-        highlightjs_path = node.attr 'highlightjsdir', %(#{cdn_base}/highlight.js/8.4)
-        result << %(<link rel="stylesheet" href="#{highlightjs_path}/styles/#{node.attr 'highlightjs-theme', 'github'}.min.css"#{slash}>
-<script src="#{highlightjs_path}/highlight.min.js"></script>
-<script>hljs.initHighlightingOnLoad()</script>)
-      when 'prettify'
-        prettify_path = node.attr 'prettifydir', %(#{cdn_base}/prettify/r298)
-        result << %(<link rel="stylesheet" href="#{prettify_path}/#{node.attr 'prettify-theme', 'prettify'}.min.css"#{slash}>
-<script src="#{prettify_path}/prettify.min.js"></script>
-<script>document.addEventListener('DOMContentLoaded', prettyPrint)</script>)
-      end
-
-      if node.attr? 'stem'
-        # IMPORTANT to_s calls on delimiter arrays are intentional for JavaScript compat (emulates JSON.stringify)
-        eqnums_val = node.attr 'eqnums', 'none'
-        eqnums_val = 'AMS' if eqnums_val == ''
-        eqnums_opt = %( equationNumbers: { autoNumber: "#{eqnums_val}" } )
-        result << %(<script type="text/x-mathjax-config">
-MathJax.Hub.Config({
-  tex2jax: {
-    inlineMath: [#{INLINE_MATH_DELIMITERS[:latexmath].to_s}],
-    displayMath: [#{BLOCK_MATH_DELIMITERS[:latexmath].to_s}],
-    ignoreClass: "nostem|nolatexmath"
-  },
-  asciimath2jax: {
-    delimiters: [#{BLOCK_MATH_DELIMITERS[:asciimath].to_s}],
-    ignoreClass: "nostem|noasciimath"
-  },
-  TeX: {#{eqnums_opt}}
-});
-</script>
-<script src="#{cdn_base}/mathjax/2.4.0/MathJax.js?config=TeX-MML-AM_HTMLorMML"></script>)
       end
 
       unless (docinfo_content = node.docinfo).empty?
@@ -159,6 +128,7 @@ MathJax.Hub.Config({
 #{outline node}
 </div>)
           end
+          # QUESTION should this h2 have an auto-generated id?
           result << %(<h2>#{node.attr 'manname-title'}</h2>
 <div class="sectionbody">
 <p>#{node.attr 'manname'} - #{node.attr 'manpurpose'}</p>
@@ -231,10 +201,48 @@ MathJax.Hub.Config({
           result << %(#{node.attr 'last-update-label'} #{node.attr 'docdatetime'})
         end
         result << '</div>'
-        unless (docinfo_content = node.docinfo :footer).empty?
-          result << docinfo_content
-        end
         result << '</div>'
+      end
+
+      unless (docinfo_content = node.docinfo :footer).empty?
+        result << docinfo_content
+      end
+      
+      # Load Javascript at the end of body for performance
+      # See http://www.html5rocks.com/en/tutorials/speed/script-loading/
+      case highlighter
+      when 'highlightjs', 'highlight.js'
+        highlightjs_path = node.attr 'highlightjsdir', %(#{cdn_base}/highlight.js/8.6)
+        result << %(<link rel="stylesheet" href="#{highlightjs_path}/styles/#{node.attr 'highlightjs-theme', 'github'}.min.css"#{slash}>)
+        result << %(<script src="#{highlightjs_path}/highlight.min.js"></script>
+<script>hljs.initHighlighting()</script>)
+      when 'prettify'
+        prettify_path = node.attr 'prettifydir', %(#{cdn_base}/prettify/r298)
+        result << %(<link rel="stylesheet" href="#{prettify_path}/#{node.attr 'prettify-theme', 'prettify'}.min.css"#{slash}>)
+        result << %(<script src="#{prettify_path}/prettify.min.js"></script>
+<script>prettyPrint()</script>)
+      end
+
+      if node.attr? 'stem'
+        # IMPORTANT to_s calls on delimiter arrays are intentional for JavaScript compat (emulates JSON.stringify)
+        eqnums_val = node.attr 'eqnums', 'none'
+        eqnums_val = 'AMS' if eqnums_val == ''
+        eqnums_opt = %( equationNumbers: { autoNumber: "#{eqnums_val}" } )
+        result << %(<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  tex2jax: {
+    inlineMath: [#{INLINE_MATH_DELIMITERS[:latexmath].inspect}],
+    displayMath: [#{BLOCK_MATH_DELIMITERS[:latexmath].inspect}],
+    ignoreClass: "nostem|nolatexmath"
+  },
+  asciimath2jax: {
+    delimiters: [#{BLOCK_MATH_DELIMITERS[:asciimath].inspect}],
+    ignoreClass: "nostem|noasciimath"
+  },
+  TeX: {#{eqnums_opt}}
+});
+</script>
+<script src="#{cdn_base}/mathjax/2.5.3/MathJax.js?config=TeX-MML-AM_HTMLorMML"></script>)
       end
 
       result << '</body>'
@@ -244,9 +252,29 @@ MathJax.Hub.Config({
 
     def embedded node
       result = []
-      if !node.notitle && node.has_header?
-        id_attr = node.id ? %( id="#{node.id}") : nil
-        result << %(<h1#{id_attr}>#{node.header.title}</h1>)
+      if node.doctype == 'manpage'
+        # QUESTION should notitle control the manual page title?
+        unless node.notitle
+          id_attr = node.id ? %( id="#{node.id}") : nil
+          result << %(<h1#{id_attr}>#{node.doctitle} Manual Page</h1>)
+        end
+        # QUESTION should this h2 have an auto-generated id?
+        result << %(<h2>#{node.attr 'manname-title'}</h2>
+<div class="sectionbody">
+<p>#{node.attr 'manname'} - #{node.attr 'manpurpose'}</p>
+</div>)
+      else
+        if node.has_header? && !node.notitle
+          id_attr = node.id ? %( id="#{node.id}") : nil
+          result << %(<h1#{id_attr}>#{node.header.title}</h1>)
+        end
+      end
+
+      if (node.attr? 'toc') && !['macro', 'preamble'].include?(node.attr 'toc-placement')
+        result << %(<div id="toc" class="toc">
+<div id="toctitle">#{node.attr 'toc-title'}</div>
+#{outline node}
+</div>)
       end
 
       result << node.content
@@ -663,25 +691,16 @@ Your browser does not support the audio tag.
     end
 
     def paragraph node
-      attributes = if node.id
-        if node.role
-          %( id="#{node.id}" class="paragraph #{node.role}")
-        else
-          %( id="#{node.id}" class="paragraph")
-        end
-      elsif node.role
-        %( class="paragraph #{node.role}")
-      else
-        ' class="paragraph"'
-      end
+      class_attribute = node.role ? %(class="paragraph #{node.role}") : 'class="paragraph"'
+      attributes = node.id ? %(id="#{node.id}" #{class_attribute}) : class_attribute
 
       if node.title?
-        %(<div#{attributes}>
+        %(<div #{attributes}>
 <div class="title">#{node.title}</div>
 <p>#{node.content}</p>
 </div>)
       else
-        %(<div#{attributes}>
+        %(<div #{attributes}>
 <p>#{node.content}</p>
 </div>)
       end
@@ -911,6 +930,9 @@ Your browser does not support the audio tag.
       height_attribute = (node.attr? 'height') ? %( height="#{node.attr 'height'}") : nil
       case node.attr 'poster'
       when 'vimeo'
+        unless (asset_uri_scheme = (node.document.attr 'asset-uri-scheme', 'https')).empty?
+          asset_uri_scheme = %(#{asset_uri_scheme}:)
+        end
         start_anchor = (node.attr? 'start', nil, false) ? %(#at=#{node.attr 'start'}) : nil
         delimiter = '?'
         autoplay_param = (node.option? 'autoplay') ? %(#{delimiter}autoplay=1) : nil
@@ -918,10 +940,13 @@ Your browser does not support the audio tag.
         loop_param = (node.option? 'loop') ? %(#{delimiter}loop=1) : nil
         %(<div#{id_attribute}#{class_attribute}>#{title_element}
 <div class="content">
-<iframe#{width_attribute}#{height_attribute} src="//player.vimeo.com/video/#{node.attr 'target'}#{start_anchor}#{autoplay_param}#{loop_param}" frameborder="0"#{(node.option? 'nofullscreen') ? nil : (append_boolean_attribute 'allowfullscreen', xml)}></iframe>
+<iframe#{width_attribute}#{height_attribute} src="#{asset_uri_scheme}//player.vimeo.com/video/#{node.attr 'target'}#{start_anchor}#{autoplay_param}#{loop_param}" frameborder="0"#{(node.option? 'nofullscreen') ? nil : (append_boolean_attribute 'allowfullscreen', xml)}></iframe>
 </div>
 </div>)
       when 'youtube'
+        unless (asset_uri_scheme = (node.document.attr 'asset-uri-scheme', 'https')).empty?
+          asset_uri_scheme = %(#{asset_uri_scheme}:)
+        end
         rel_param_val = (node.option? 'related') ? 1 : 0
         start_param = (node.attr? 'start', nil, false) ? %(&amp;start=#{node.attr 'start'}) : nil
         end_param = (node.attr? 'end', nil, false) ? %(&amp;end=#{node.attr 'end'}) : nil
@@ -951,13 +976,14 @@ Your browser does not support the audio tag.
             # INFO playlist bar doesn't appear in Firefox unless showinfo=1 and modestbranding=1
             list_param = %(&amp;playlist=#{playlist})
           else
-            list_param = nil
+            # NOTE for loop to work, playlist must be specified; use VIDEO_ID if there's no explicit playlist
+            list_param = loop_param ? %(&amp;playlist=#{target}) : nil
           end
         end
 
         %(<div#{id_attribute}#{class_attribute}>#{title_element}
 <div class="content">
-<iframe#{width_attribute}#{height_attribute} src="//www.youtube.com/embed/#{target}?rel=#{rel_param_val}#{start_param}#{end_param}#{autoplay_param}#{loop_param}#{controls_param}#{list_param}#{fs_param}#{modest_param}#{theme_param}#{hl_param}" frameborder="0"#{fs_attribute}></iframe>
+<iframe#{width_attribute}#{height_attribute} src="#{asset_uri_scheme}//www.youtube.com/embed/#{target}?rel=#{rel_param_val}#{start_param}#{end_param}#{autoplay_param}#{loop_param}#{controls_param}#{list_param}#{fs_param}#{modest_param}#{theme_param}#{hl_param}" frameborder="0"#{fs_attribute}></iframe>
 </div>
 </div>)
       else
@@ -979,7 +1005,7 @@ Your browser does not support the video tag.
       target = node.target
       case node.type
       when :xref
-        refid = (node.attr 'refid') || target
+        refid = node.attributes['refid'] || target
         # NOTE we lookup text in converter because DocBook doesn't need this logic
         text = node.text || (node.document.references[:ids][refid] || %([#{refid}]))
         # FIXME shouldn't target be refid? logic seems confused here
@@ -992,8 +1018,8 @@ Your browser does not support the video tag.
         if (role = node.role)
           attrs << %( class="#{role}")
         end
-        attrs << %( title="#{node.attr 'title'}") if node.attr? 'title'
-        attrs << %( target="#{node.attr 'window'}") if node.attr? 'window'
+        attrs << %( title="#{node.attr 'title'}") if node.attr? 'title', nil, false
+        attrs << %( target="#{node.attr 'window'}") if node.attr? 'window', nil, false
         %(<a href="#{target}"#{attrs.join}>#{node.text}</a>)
       when :bibref
         %(<a id="#{target}"></a>[#{target}])

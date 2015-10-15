@@ -138,7 +138,9 @@ context 'Document' do
       exception = assert_raises ArgumentError do
         Asciidoctor.load_file(sample_input_path, :safe => Asciidoctor::SafeMode::SAFE)
       end
-      assert_match(/Failed to parse source/, exception.message)
+      assert_match(/Failed to load AsciiDoc document/, exception.message)
+      # verify we have the correct backtrace (should be in at least first 5 lines)
+      assert_match((RUBY_ENGINE == 'rbx' ? /parser\.rb/ : /helpers\.rb/), exception.backtrace[0..4].join("\n"))
     end if RUBY_MIN_VERSION_1_9
 
     test 'should load input IO' do
@@ -317,7 +319,7 @@ preamble
       assert_equal 1, section_1.lineno
     end
 
-    test 'find_by should return Array of blocks that match criteria' do
+    test 'find_by should return Array of blocks anywhere in document tree that match criteria' do
       input = <<-EOS
 = Document Title
 
@@ -334,7 +336,7 @@ Exhibit A::
 image::tiger.png[Tiger]
 --
 
-image::cat.png[Cat]
+image::shoe.png[Shoe]
 
 == Section B
 
@@ -347,7 +349,124 @@ paragraph
       assert_equal :image, result[0].context
       assert_equal 'tiger.png', result[0].attr('target')
       assert_equal :image, result[1].context
-      assert_equal 'cat.png', result[1].attr('target')
+      assert_equal 'shoe.png', result[1].attr('target')
+    end
+
+    test 'find_by should return an empty Array if no matches are found' do
+      input = <<-EOS
+paragraph
+      EOS
+      doc = Asciidoctor.load input
+      result = doc.find_by :context => :section
+      refute_nil result
+      assert_equal 0, result.size
+    end
+
+    test 'find_by should return Array of blocks that match style criteria' do
+      input = <<-EOS
+[square]
+* one
+* two
+* three
+
+---
+
+* apples
+* bananas
+* pears
+      EOS
+
+      doc = Asciidoctor.load input
+      result = doc.find_by :context => :ulist, :style => 'square'
+      assert_equal 1, result.size
+      assert_equal :ulist, result[0].context
+    end
+
+    test 'find_by should return Array of blocks that match role criteria' do
+      input = <<-EOS
+[#tiger.animal]
+image::tiger.png[Tiger]
+
+image::shoe.png[Shoe]
+      EOS
+
+      doc = Asciidoctor.load input
+      result = doc.find_by :context => :image, :role => 'animal'
+      assert_equal 1, result.size
+      assert_equal :image, result[0].context
+      assert_equal 'tiger.png', result[0].attr('target')
+    end
+
+    test 'find_by should return the document title section if context selector is :section' do
+      input = <<-EOS
+= Document Title
+
+preamble
+
+== Section One
+
+content
+      EOS
+      doc = Asciidoctor.load input
+      result = doc.find_by :context => :section
+      refute_nil result
+      assert_equal 2, result.size
+      assert_equal :section, result[0].context
+      assert_equal 'Document Title', result[0].title
+    end
+
+    test 'find_by should only return results for which the block argument yields true' do
+      input = <<-EOS
+== Section
+
+content
+
+=== Subsection
+
+content
+      EOS
+      doc = Asciidoctor.load input
+      result = doc.find_by(:context => :section) {|sect| sect.level == 1 }
+      refute_nil result
+      assert_equal 1, result.size
+      assert_equal :section, result[0].context
+      assert_equal 'Section', result[0].title
+    end
+
+    test 'find_by should only return one result when matching by id' do
+      input = <<-EOS
+== Section
+
+content
+
+[#subsection]
+=== Subsection
+
+content
+      EOS
+      doc = Asciidoctor.load input
+      result = doc.find_by(:context => :section, :id => 'subsection')
+      refute_nil result
+      assert_equal 1, result.size
+      assert_equal :section, result[0].context
+      assert_equal 'Subsection', result[0].title
+    end
+
+    test 'find_by should return an empty Array if the id criteria matches but the block argument yields false' do
+      input = <<-EOS
+== Section
+
+content
+
+[#subsection]
+=== Subsection
+
+content
+      EOS
+      doc = Asciidoctor.load input
+      result = doc.find_by(:context => :section, :id => 'subsection') {|sect| false }
+      refute_nil result
+      assert_equal 0, result.size
     end
   end
 
@@ -639,18 +758,32 @@ text
       assert !output.empty?
       assert_css 'script[src="modernizr.js"]', output, 1
       assert_css 'meta[http-equiv="imagetoolbar"]', output, 0
+      assert_css 'body > a#top', output, 0
+      assert_css 'body > script', output, 1
 
       output = Asciidoctor.convert_file sample_input_path, :to_file => false,
           :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo1' => ''}
       assert !output.empty?
       assert_css 'script[src="modernizr.js"]', output, 0
       assert_css 'meta[http-equiv="imagetoolbar"]', output, 1
+      assert_css 'body > a#top', output, 1
+      assert_css 'body > script', output, 0
 
       output = Asciidoctor.convert_file sample_input_path, :to_file => false,
           :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo2' => ''}
       assert !output.empty?
       assert_css 'script[src="modernizr.js"]', output, 1
       assert_css 'meta[http-equiv="imagetoolbar"]', output, 1
+      assert_css 'body > a#top', output, 1
+      assert_css 'body > script', output, 1
+    end
+
+    test 'should include docinfo footer even if nofooter attribute is set' do
+      sample_input_path = fixture_path('basic.asciidoc')
+      output = Asciidoctor.convert_file sample_input_path, :to_file => false,
+          :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo1' => '', 'nofooter' => ''}
+      assert !output.empty?
+      assert_css 'body > a#top', output, 1
     end
 
     test 'should include docinfo files for html backend with custom docinfodir' do
@@ -833,6 +966,9 @@ text
     test 'should add MathJax script to HTML head if stem attribute is set' do
       output = render_string '', :attributes => {'stem' => ''}
       assert_match('<script type="text/x-mathjax-config">', output)
+      assert_match('inlineMath: [["\\\\(", "\\\\)"]]', output)
+      assert_match('displayMath: [["\\\\[", "\\\\]"]]', output)
+      assert_match('delimiters: [["\\\\$", "\\\\$"]]', output)
     end
   end
 
@@ -888,9 +1024,38 @@ text
       assert_nil doc.header
     end
 
+    test 'title partition API with default separator' do
+      title = Asciidoctor::Document::Title.new 'Main Title: And More: Subtitle'
+      assert_equal 'Main Title: And More', title.main
+      assert_equal 'Subtitle', title.subtitle
+    end
+
+    test 'title partition API with custom separator' do
+      title = Asciidoctor::Document::Title.new 'Main Title:: And More:: Subtitle', :separator => '::'
+      assert_equal 'Main Title:: And More', title.main
+      assert_equal 'Subtitle', title.subtitle
+    end
+
     test 'document with subtitle' do
       input = <<-EOS
 = Main Title: *Subtitle*
+Author Name
+
+content
+      EOS
+
+      doc = document_from_string input
+      title = doc.doctitle :partition => true, :sanitize => true
+      assert title.subtitle?
+      assert title.sanitized?
+      assert_equal 'Main Title', title.main
+      assert_equal 'Subtitle', title.subtitle
+    end
+
+    test 'document with subtitle and custom separator' do
+      input = <<-EOS
+[separator=::]
+= Main Title:: *Subtitle*
 Author Name
 
 content
@@ -1013,7 +1178,7 @@ text
 
     test 'should sanitize contents of HTML title element' do
       input = <<-EOS
-= *Document* image:logo.png[] _Title_ image:another-logo.png[]
+= *Document* image:logo.png[] _Title_ image:another-logo.png[another logo]
 
 content
       EOS
@@ -1022,7 +1187,7 @@ content
       assert_xpath '/html/head/title[text()="Document Title"]', output, 1
       nodes = xmlnodes_at_xpath('//*[@id="header"]/h1', output, 1)
       assert_equal 1, nodes.size
-      assert_match(/<h1><strong>Document<\/strong> <span class="image"><img src="logo.png" alt="logo"><\/span> <em>Title<\/em> <span class="image"><img src="another-logo.png" alt="another-logo"><\/span><\/h1>/, output)
+      assert_match('<h1><strong>Document</strong> <span class="image"><img src="logo.png" alt="logo"></span> <em>Title</em> <span class="image"><img src="another-logo.png" alt="another logo"></span></h1>', output)
     end
      
     test 'should not choke on empty source' do
@@ -1833,6 +1998,28 @@ asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats
       assert_xpath '//h2[text()="NAME"]/following-sibling::*[@class="sectionbody"]/p[text()="asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats"]', output, 1
       assert_xpath '//*[@id="content"]/*[@class="sect1"]/h2[text()="SYNOPSIS"]', output, 1
     end
+
+    test 'should output special header block in embeddable HTML for manpage doctype' do
+      input = <<-EOS
+= asciidoctor(1)
+:doctype: manpage
+:showtitle:
+
+== NAME
+
+asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats
+
+== SYNOPSIS
+
+*asciidoctor* ['OPTION']... 'FILE'..
+      EOS
+
+      output = render_string input, :header_footer => false
+      assert_xpath '/h1[text()="asciidoctor(1) Manual Page"]', output, 1
+      assert_xpath '/h1/following-sibling::h2[text()="NAME"]', output, 1
+      assert_xpath '/h2[text()="NAME"]/following-sibling::*[@class="sectionbody"]', output, 1
+      assert_xpath '/h2[text()="NAME"]/following-sibling::*[@class="sectionbody"]/p[text()="asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats"]', output, 1
+    end
   end
 
   context 'Secure Asset Path' do
@@ -1867,6 +2054,27 @@ text
         Asciidoctor.render(input, :backend => "unknownBackend")
       end
       assert_match(/missing converter for backend 'unknownBackend'/, exception.message)
+    end
+  end
+
+  context 'Timing report' do
+    test 'print_report does not lose precision' do
+      timings = Asciidoctor::Timings.new
+      log = timings.instance_variable_get(:@log)
+      log[:read] = 0.00001
+      log[:parse] = 0.00003
+      log[:convert] = 0.00005
+      timings.print_report(sink = StringIO.new)
+      expect = ['0.00004', '0.00005', '0.00009']
+      result = sink.string.split("\n").map {|l| l.sub(/.*:\s*([\d.]+)/, '\1') }
+      assert_equal expect, result
+    end
+
+    test 'print_report should print 0 for untimed phases' do
+      Asciidoctor::Timings.new.print_report(sink = StringIO.new)
+      expect = [].fill('0.00000', 0..2)
+      result = sink.string.split("\n").map {|l| l.sub(/.*:\s*([\d.]+)/, '\1') }
+      assert_equal expect, result
     end
   end
 end

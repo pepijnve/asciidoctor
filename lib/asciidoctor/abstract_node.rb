@@ -90,7 +90,7 @@ class AbstractNode
   # return the value of the attribute or the default value if the attribute
   # is not found in the attributes of this node or the document node
   def attr(name, default_value = nil, inherit = true)
-    name = name.to_s if name.is_a?(::Symbol)
+    name = name.to_s if ::Symbol === name
     inherit = false if self == @document
     if inherit
       @attributes[name] || @document.attributes[name] || default_value
@@ -117,7 +117,7 @@ class AbstractNode
   # comparison value is specified, whether the value of the attribute matches
   # the comparison value
   def attr?(name, expect = nil, inherit = true)
-    name = name.to_s if name.is_a?(::Symbol)
+    name = name.to_s if ::Symbol === name
     inherit = false if self == @document
     if expect.nil?
       @attributes.has_key?(name) || (inherit && @document.attributes.has_key?(name))
@@ -130,23 +130,18 @@ class AbstractNode
 
   # Public: Assign the value to the attribute name for the current node.
   #
-  # name      - The String attribute name
-  # value     - The Object value to assign to the attribute name
+  # name      - The String attribute name to assign
+  # value     - The Object value to assign to the attribute
   # overwrite - A Boolean indicating whether to assign the attribute
-  #             if currently present in the attributes Hash
+  #             if currently present in the attributes Hash (default: true)
   #
   # Returns a [Boolean] indicating whether the assignment was performed
-  def set_attr name, value, overwrite = nil
-    if overwrite.nil?
+  def set_attr name, value, overwrite = true
+    if overwrite == false && (@attributes.key? name)
+      false
+    else
       @attributes[name] = value
       true
-    else
-      if overwrite || !(@attributes.key? name)
-        @attributes[name] = value
-        true
-      else
-        false
-      end
     end
   end
 
@@ -301,8 +296,8 @@ class AbstractNode
   # Returns A String reference or data URI for the target image
   def image_uri(target_image, asset_dir_key = 'imagesdir')
     if (doc = @document).safe < SafeMode::SECURE && doc.attr?('data-uri')
-      if is_uri?(target_image) ||
-          (asset_dir_key && (images_base = doc.attr(asset_dir_key)) && is_uri?(images_base) &&
+      if (Helpers.uriish? target_image) ||
+          (asset_dir_key && (images_base = doc.attr(asset_dir_key)) && (Helpers.uriish? images_base) &&
           (target_image = normalize_web_path(target_image, images_base, false)))
         if doc.attr?('allow-uri-read')
           generate_data_uri_from_uri target_image, doc.attr?('cache-uri')
@@ -330,8 +325,9 @@ class AbstractNode
   #
   # Returns A String data URI containing the content of the target image
   def generate_data_uri(target_image, asset_dir_key = nil)
-    ext = ::File.extname(target_image)[1..-1]
-    mimetype = (ext == 'svg' ? 'image/svg+xml' : %(image/#{ext}))
+    ext = ::File.extname target_image
+    # QUESTION what if ext is empty?
+    mimetype = (ext == '.svg' ? 'image/svg+xml' : %(image/#{ext[1..-1]}))
     if asset_dir_key
       image_path = normalize_system_path(target_image, @document.attr(asset_dir_key), nil, :target_name => 'image')
     else
@@ -414,9 +410,9 @@ class AbstractNode
     opts = { :warn_on_failure => (opts != false) } unless ::Hash === opts
     if ::File.readable? path
       if opts[:normalize]
-        # QUESTION should we strip content?
         Helpers.normalize_lines_from_string(::IO.read(path)) * EOL
       else
+        # QUESTION should we chomp or rstrip content?
         ::IO.read(path)
       end
     else
@@ -435,7 +431,7 @@ class AbstractNode
   #
   # Returns the resolved [String] path 
   def normalize_web_path(target, start = nil, preserve_uri_target = true)
-    if preserve_uri_target && is_uri?(target)
+    if preserve_uri_target && (Helpers.uriish? target)
       target
     else
       (@path_resolver ||= PathResolver.new).web_path target, start
@@ -498,8 +494,10 @@ class AbstractNode
 
   # Public: Check whether the specified String is a URI by
   # matching it against the Asciidoctor::UriSniffRx regex.
+  #
+  # @deprecated Use Helpers.uriish? instead
   def is_uri? str
-    str.include?(':') && UriSniffRx =~ str
+    Helpers.uriish? str
   end
 
   # Public: Retrieve the list marker keyword for the specified list type.

@@ -43,7 +43,8 @@ Example: asciidoctor -b html5 source.asciidoc
 
           EOS
 
-          opts.on('-b', '--backend BACKEND', 'set output format backend (default: html5)') do |backend|
+          opts.on('-b', '--backend BACKEND', 'set output format backend: [html5, xhtml5, docbook5, docbook45, manpage] (default: html5)',
+                  'additional backends are supported via extensions (e.g., pdf, latex)') do |backend|
             self[:attributes]['backend'] = backend
           end
           opts.on('-d', '--doctype DOCTYPE', ['article', 'book', 'manpage', 'inline'],
@@ -80,11 +81,12 @@ Example: asciidoctor -b html5 source.asciidoc
                   'unless @ is appended to the value, this attributes takes precedence over attributes',
                   'defined in the source document') do |attr|
             key, val = attr.split '=', 2
+            val = val ? (FORCE_ENCODING ? (val.force_encoding ::Encoding::UTF_8) : val) : ''
             # move leading ! to end for internal processing
             #if !val && key.start_with?('!')
             #  key = "#{key[1..-1]}!"
             #end
-            self[:attributes][key] = val || ''
+            self[:attributes][key] = val
           end
           opts.on('-T', '--template-dir DIR', 'a directory containing custom converter templates that override the built-in converter (requires tilt gem)',
                   'may be specified multiple times') do |template_dir|
