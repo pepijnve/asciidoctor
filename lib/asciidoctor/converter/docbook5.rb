@@ -247,13 +247,6 @@ module Asciidoctor
       end
     end
 
-    begin
-      require 'asciimath' unless defined? ::AsciiMath
-      ASCIIMATH_LOADED = true
-    rescue LoadError
-      ASCIIMATH_LOADED = false
-    end
-
     def stem node
       if (idx = node.subs.index :specialcharacters)
         node.subs.delete :specialcharacters
@@ -263,8 +256,9 @@ module Asciidoctor
       if node.style == 'latexmath'
         equation_data = %(<alt><![CDATA[#{equation}]]></alt>
 <mediaobject><textobject><phrase></phrase></textobject></mediaobject>)
-      elsif node.style == 'asciimath' && ASCIIMATH_LOADED
-        equation_data = AsciiMath.parse(equation).to_mathml('mml:', 'xmlns:mml' => 'http://www.w3.org/1998/Math/MathML')
+      elsif node.style == 'asciimath' && (!(defined? @asciimath_loaded) ?
+          (@asciimath_loaded = Helpers.require_library 'asciimath', true, :warn) : @asciimath_loaded)
+        equation_data = ::AsciiMath.parse(equation).to_mathml 'mml:', 'xmlns:mml' => 'http://www.w3.org/1998/Math/MathML'
       else
         # Unsupported math style, so output raw expression in text object
         equation_data = %(<mediaobject><textobject><phrase><![CDATA[#{equation}]]></phrase></textobject></mediaobject>)
